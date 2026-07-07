@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import AuthForm from './components/AuthForm.jsx';
+import TaskList from './components/TaskList.jsx';
 import { getCurrentUser, logout } from './api.js';
 
 export default function App() {
@@ -29,11 +30,13 @@ export default function App() {
   if (user) {
     return (
       <main className="container">
-        <div className="card">
-          <h1>Task Manager</h1>
-          <p>Signed in as <strong>{user.email}</strong>.</p>
-          <p className="muted">Auth flow complete — task features coming next.</p>
-          <button onClick={handleLogout}>Sign out</button>
+        <div className="card card--wide">
+          <div className="card-header">
+            <h1>Task Manager</h1>
+            <button type="button" className="link" onClick={handleLogout}>Sign out</button>
+          </div>
+          <p className="muted">Signed in as <strong>{user.email}</strong>.</p>
+          <TaskList />
         </div>
       </main>
     );
