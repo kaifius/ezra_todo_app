@@ -3,14 +3,17 @@
 // HttpOnly identity cookie that backs our session.
 import { extractErrorMessage } from './errors.js';
 
-async function post(path, body) {
-  const res = await fetch(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+function request(method, path, body) {
+  return fetch(path, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
     credentials: 'include',
     body: body ? JSON.stringify(body) : undefined,
   });
-  return res;
+}
+
+function post(path, body) {
+  return request('POST', path, body);
 }
 
 // Read the response body (if any) and reduce it to a display string.
@@ -51,4 +54,32 @@ export async function getCurrentUser() {
   if (res.status === 401) return null;
   if (!res.ok) throw new Error('Could not load session.');
   return res.json();
+}
+
+// --- Tasks (todo CRUD under /api/tasks, scoped to the session's user) ---
+
+// Each task is { id, title, isCompleted, createdAt }.
+export async function getTasks() {
+  const res = await fetch('/api/tasks', { credentials: 'include' });
+  if (!res.ok) throw new Error(await readError(res, 'Could not load tasks.'));
+  return res.json();
+}
+
+export async function createTask(title) {
+  const res = await post('/api/tasks', { title });
+  if (!res.ok) throw new Error(await readError(res, 'Could not add task.'));
+  return res.json();
+}
+
+// Toggles completion. The API's PUT requires a title, so resend the task's
+// existing one alongside the new completed state.
+export async function setTaskCompleted(task, isCompleted) {
+  const res = await request('PUT', `/api/tasks/${task.id}`, { title: task.title, isCompleted });
+  if (!res.ok) throw new Error(await readError(res, 'Could not update task.'));
+  return res.json();
+}
+
+export async function deleteTask(id) {
+  const res = await request('DELETE', `/api/tasks/${id}`);
+  if (!res.ok) throw new Error(await readError(res, 'Could not delete task.'));
 }
