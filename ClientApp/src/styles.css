@@ -183,6 +183,22 @@ button:disabled {
   color: var(--muted);
 }
 
+/* Up/down reorder controls, kept tight together. */
+.task-move {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.15rem;
+}
+
+.task-move .task-secondary {
+  padding: 0.3rem 0.45rem;
+  line-height: 1;
+}
+
+.task-move .task-secondary:disabled {
+  opacity: 0.3;
+}
+
 /* Small, quiet text buttons for the per-row actions (Rename / Cancel / Delete). */
 .task-secondary {
   flex-shrink: 0;

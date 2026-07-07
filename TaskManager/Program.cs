@@ -163,12 +163,11 @@ tasks.MapPut("/{id:int}", async (int id, TaskRequest request, ClaimsPrincipal us
         return Results.NotFound();
 
     task.Title = title;
-    // Completion and position are optional on update; leave them untouched when
-    // the client omits them (e.g. a rename doesn't clear the checkbox).
+    // Completion is optional on update; leave it untouched when the client omits it
+    // (e.g. a rename doesn't clear the checkbox). Ordering is owned by the reorder
+    // endpoint below, so PUT never touches Position.
     if (request.IsCompleted is bool completed)
         task.IsCompleted = completed;
-    if (request.Position is int position)
-        task.Position = position;
 
     await db.SaveChangesAsync();
 
@@ -188,6 +187,35 @@ tasks.MapDelete("/{id:int}", async (int id, ClaimsPrincipal user, AppDbContext d
     return Results.NoContent();
 });
 
+// Reorder the whole list: the client sends the user's task ids in the desired
+// order and we renumber Position to match. Taking the full list (rather than a
+// per-item "move to N") keeps it atomic and sidesteps position collisions/gaps.
+// `/order` is a literal, so it never clashes with the `/{id:int}` routes above.
+tasks.MapPut("/order", async (ReorderRequest request, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var userId = user.GetUserId();
+    var ids = request.Ids ?? Array.Empty<int>();
+
+    var userTasks = await db.Tasks.Where(t => t.UserId == userId).ToListAsync();
+    var ownedIds = userTasks.Select(t => t.Id).ToHashSet();
+
+    // The submitted ids must be exactly this user's tasks, once each. Anything else
+    // — a stale list (a task was added/deleted elsewhere), a duplicate, or an id we
+    // don't own — is rejected so the client resyncs instead of corrupting the order.
+    if (ids.Length != ownedIds.Count || !ids.ToHashSet().SetEquals(ownedIds))
+        return Results.Problem(
+            detail: "The task list is out of date. Reload and try again.",
+            statusCode: StatusCodes.Status400BadRequest);
+
+    var positionById = ids.Select((id, index) => (id, index)).ToDictionary(x => x.id, x => x.index);
+    foreach (var task in userTasks)
+        task.Position = positionById[task.Id];
+
+    await db.SaveChangesAsync();
+
+    return Results.NoContent();
+});
+
 app.MapFallbackToFile("index.html");
 
 app.Run();
@@ -200,9 +228,12 @@ static IResult TitleRequired() => Results.ValidationProblem(new Dictionary<strin
 
 record AuthRequest(string Email, string Password);
 
-// Nullable so an omitted field means "leave unchanged" on update, rather than
-// resetting to false/0.
-record TaskRequest(string? Title, bool? IsCompleted, int? Position);
+// IsCompleted is nullable so an omitted field means "leave unchanged" on update,
+// rather than resetting to false.
+record TaskRequest(string? Title, bool? IsCompleted);
+
+// The user's full set of task ids in the desired order.
+record ReorderRequest(int[]? Ids);
 
 record TaskResponse(int Id, string Title, bool IsCompleted, int Position, DateTimeOffset CreatedAt)
 {
