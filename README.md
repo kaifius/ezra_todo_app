@@ -28,7 +28,18 @@ Then open the printed `http://localhost:<port>` URL. You can register a new acco
 For iterating on the React code with hot reload, run the backend (`dotnet run --project TaskManager`) and the Vite dev server (`cd ClientApp && npm run dev`) side by side, then open the Vite URL (`http://localhost:5173`). Vite proxies the auth API to the backend so the session cookie works across both dev servers.
 
 ### Run the tests
-`dotnet test`
+Backend — integration tests covering the auth endpoints (run from the repo root):
+
+```bash
+dotnet test
+```
+
+Frontend — unit tests (run from `ClientApp/`, after `npm install`):
+
+```bash
+cd ClientApp
+npm test
+```
 
 ## The feature set
 A logged-in user can:

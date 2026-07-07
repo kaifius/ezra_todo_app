@@ -1,6 +1,7 @@
 // Thin wrapper around the ASP.NET Core Identity endpoints exposed under /account.
 // `credentials: 'include'` is essential: it tells the browser to send/receive the
 // HttpOnly identity cookie that backs our session.
+import { extractErrorMessage } from './errors.js';
 
 async function post(path, body) {
   const res = await fetch(path, {
@@ -12,21 +13,15 @@ async function post(path, body) {
   return res;
 }
 
-// Identity returns validation failures as an RFC 7807 problem-details object with
-// an `errors` map ({ code: [messages] }). Flatten it into one readable string.
+// Read the response body (if any) and reduce it to a display string.
 async function readError(res, fallback) {
+  let data = null;
   try {
-    const data = await res.json();
-    if (data?.errors) {
-      const messages = Object.values(data.errors).flat();
-      if (messages.length) return messages.join(' ');
-    }
-    if (data?.detail) return data.detail;
-    if (data?.title) return data.title;
+    data = await res.json();
   } catch {
-    // no/invalid JSON body — fall through
+    // no/invalid JSON body — extractErrorMessage falls back
   }
-  return fallback;
+  return extractErrorMessage(data, fallback);
 }
 
 export async function register(email, password) {
