@@ -5,8 +5,8 @@ This is a basic MVP Task Management app built with .NET and React.
 ## Local setup
 
 ### Prerequisites
-- The [.NET SDK](https://dotnet.microsoft.com/download) (10.0+). On a Mac: `brew install --cask dotnet-sdk`
-- [Node.js](https://nodejs.org) (18+), which provides `npm`, to build the React frontend. On a Mac: `brew install node`
+- The [.NET SDK](https://dotnet.microsoft.com/download) (10.0+). On a Mac: `brew install --cask dotnet-sdk`.
+- [Node.js](https://nodejs.org) (18+), which provides `npm`, to build the React frontend. On a Mac: `brew install node`.
 
 ### Run the app
 The React frontend (in `ClientApp/`) builds into the backend's `wwwroot/`, which the .NET app then serves. So build the frontend once, then run the backend:
@@ -43,18 +43,18 @@ npm test
 
 ## The feature set
 A logged-in user can:
-- Create to-do items (tasks)
-- Mark & un-mark tasks completed
-- Edit, delete and reorder existing tasks, regardless of completion state
+- Create to-do items (tasks).
+- Mark & un-mark tasks completed.
+- Edit, delete and reorder existing tasks, regardless of completion state.
 
 ## Reasoning for chosen features
 In my mind, the bare minimum feature set needed to make a to-do app usable is
-- The ability to log in
-  - As a user I need the to-dos to be my own, not one central list from all users
-  - As a user I want my to-dos to be private and inaccessible to other users
-- The ability to create to-dos (the central feature)
-- The ability to mark to-dos complete (making to-dos is not helpful if you can't check them off)
-- The ability to delete to-dos (so the user isn't stuck with mistake entries)
+- The ability to log in.
+  - As a user I need the to-dos to be my own, not one central list from all users.
+  - As a user I want my to-dos to be private and inaccessible to other users.
+- The ability to create to-dos (the central feature).
+- The ability to mark to-dos complete (making to-dos is not helpful if you can't check them off).
+- The ability to delete to-dos (so the user isn't stuck with mistake entries).
 
 I chose to additionally include the ability to edit and reorder items, because they are low-cost features to add and they give the user the ability to keep their list clean and at least somewhat tailored to their preferences. This would possibly avoid some user frustration that could prevent early adoption.
 
@@ -82,12 +82,23 @@ These were on my original list of features, but they got cut because the scope w
 Another feature that I cut to uncreep the scope was allowing each user to have multiple named lists rather than just one central list. If that were to be a fast-follow feature, here are the data changes that would be necessary to support it:
 
 #### Data model changes
-- add a `lists` table (`id`, `user_id`, `name`, `created_at`, `updated_at`)
-- add a `list_id` foreign key to `tasks` - a task belongs to a list, a list has many tasks
+- add a `lists` table (`id`, `user_id`, `name`, `created_at`, `updated_at`).
+- add a `list_id` foreign key to `tasks` - a task belongs to a list, a list has many tasks.
 
 #### Data migration
-- Create one `list` for each user with a generic name (e.g. "{user.name}'s Tasks") and associate all the user's tasks to that list
-- Once backfill is complete, make the `list_id` column in the `tasks` table non-nullable
-- This could be done cleanly before the UX is built by explicitly making a has-one relationship between `users` and `lists` (which would later be changed to a has-many), and then associating all new tasks on creation to the user's one list
+- Create one `list` for each user with a generic name (e.g. "{user.name}'s Tasks") and associate all the user's tasks to that list.
+- Once backfill is complete, make the `list_id` column in the `tasks` table non-nullable.
+- This could be done cleanly before the UX is built by explicitly making a has-one relationship between `users` and `lists` (which would later be changed to a has-many), and then associating all new tasks on creation to the user's one list.
 
-
+## V2 & beyond Features
+Some features I think would be nice eventually, but definitely aren't MVP
+- Due dates and times.
+- Notifications when tasks become due.
+- Because the prompt says "task management", it makes me think "Kanban". So given this to-do app as a starting place, I could see it morphing into a Kanban app like this:
+  - Assuming we have a `List` model at this point, we add a `Status` model that belongs to `List` (and a `List` has many `Status`es).
+  - A `TaskItem` belongs to one `Status`, and a `Status` has many `TaskItem`s.
+  - The `isCompleted` boolean from `TaskItem` goes away.
+  - `Status` has a `name` and `isCompletionState`. When the user is configuring statuses for a list, they must choose whether that status is considered "done" (i.e., `isCompletionState` is true).
+  - When creating a new list, the user has the option to create it in list view, in which case we would create two statuses named "To Do" and "Done", with "Done" having `isCompletionState` set to `true`.
+  - The user can toggle between list view and Kanban view at any time. In list view, we ignore the status name and just check the completion state of the task's status.
+    - In a later version, we can choose to display the statuses in list view in some way, allow sorting the list by status, etc.
