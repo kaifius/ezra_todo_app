@@ -5,7 +5,7 @@ This is a basic MVP Task Management app built with .NET and React.
 ## Local setup
 Requires the [.NET SDK](https://dotnet.microsoft.com/download). On a mac, install via homebrew with `brew install --cask dotnet-sdk`
 
-To run the app: run `dotnet run --project src/TaskManager.Web` and then go to https://localhost:5001
+To run the app: run `dotnet run --project src/TaskManager.Web` and then open the printed `http://localhost:<port>` URL.
 
 To run the tests: `dotnet test`
 
@@ -13,10 +13,9 @@ To run the tests: `dotnet test`
 A logged-in user can:
 - Create todo items (tasks)
 - Mark & un-mark tasks completed
-- Edit or delete existing tasks, regardless of completion state
+- Edit, delete and reorder existing tasks, regardless of completion state
 - Hide all completed items
 - Delete all completed items
-- Reorder tasks
 
 ### Reasoning for chosen features
 In my mind, the bare minimum feature set needed to make a to-do app usable is
@@ -33,10 +32,17 @@ I chose to additionally include the ability to edit items, show/hide all complet
 One feature that I considered including but felt like it was beyond what's necessary for a usable MVP was allowing each user to have multiple named lists rather than just one central list. If that were to be a fast-follow feature, here are the data changes that would be necessary to support it:
 
 #### Data model changes
-- add a `lists` table (`id`, `user_id`, `name`, `created_at`, `deleted_at`)
+- add a `lists` table (`id`, `user_id`, `name`, `created_at`, `updated_at`, `deleted_at`)
 - add a `list_id` foreign key to `tasks` - a task belongs to a list, a list has many tasks.
 
 #### Data Migration
 - Create one `list` for each user with a generic name (e.g. "{user.name}'s Tasks") and associate all the user's tasks to that list
 - Once backfill is complete, make the `list_id` column in the `tasks` table non-nullable.
-- This could be done cleanly before the UX is built by explicitly making a has-one relationship between `users` and `lists` (which would later be changed to a has-many), and then associating all newly created tasks to the user's one list.
+- This could be done cleanly before the UX is built by explicitly making a has-one relationship between `users` and `lists` (which would later be changed to a has-many), and then associating all new tasks on creation to the user's one list.
+
+## Misc architectural notes
+### Soft deletion for tasks, but not for users
+Tasks are soft-deleted (`deleted_at` is set instead of removing the row); users are hard-deleted. The difference is deliberate:
+
+- **Tasks:** deletion is a frequent, unceremonious action and "delete all completed" removes many at once, so accidental loss is easy. Keeping the rows gives a safety net and an easy path to undo / "trash" later.
+- **Users:** soft delete adds friction with no upside here. Identity enforces a unique email, so a soft-deleted user would block that address from ever being reused, and there's no requirement to restore accounts. Hard-deleting also lets the task foreign key's cascade cleanly remove their tasks, instead of leaving orphaned rows behind a dead cascade.
