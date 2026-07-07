@@ -100,11 +100,122 @@ app.MapGet("/account/me", (ClaimsPrincipal user) => Results.Ok(new
     email = user.FindFirstValue(ClaimTypes.Email) ?? user.Identity?.Name,
 })).RequireAuthorization();
 
+// --- Task endpoints (todo CRUD, scoped to the signed-in user) ---
+
+var tasks = app.MapGroup("/api/tasks").RequireAuthorization();
+
+tasks.MapGet("/", async (ClaimsPrincipal user, AppDbContext db) =>
+{
+    var userId = user.GetUserId();
+    var items = await db.Tasks
+        .Where(t => t.UserId == userId)
+        .OrderBy(t => t.Position).ThenBy(t => t.Id)
+        .Select(t => TaskResponse.From(t))
+        .ToListAsync();
+
+    return Results.Ok(items);
+});
+
+tasks.MapGet("/{id:int}", async (int id, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var userId = user.GetUserId();
+    var task = await db.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+
+    return task is null ? Results.NotFound() : Results.Ok(TaskResponse.From(task));
+});
+
+tasks.MapPost("/", async (TaskRequest request, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var title = request.Title?.Trim();
+    if (string.IsNullOrEmpty(title))
+        return TitleRequired();
+
+    var userId = user.GetUserId();
+    // Append to the end of this user's list.
+    var maxPosition = await db.Tasks
+        .Where(t => t.UserId == userId)
+        .MaxAsync(t => (int?)t.Position) ?? -1;
+
+    var task = new TaskItem
+    {
+        Title = title,
+        IsCompleted = request.IsCompleted ?? false,
+        Position = maxPosition + 1,
+        CreatedAt = DateTimeOffset.UtcNow,
+        UserId = userId!,
+    };
+
+    db.Tasks.Add(task);
+    await db.SaveChangesAsync();
+
+    return Results.Created($"/api/tasks/{task.Id}", TaskResponse.From(task));
+});
+
+tasks.MapPut("/{id:int}", async (int id, TaskRequest request, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var title = request.Title?.Trim();
+    if (string.IsNullOrEmpty(title))
+        return TitleRequired();
+
+    var userId = user.GetUserId();
+    var task = await db.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+    if (task is null)
+        return Results.NotFound();
+
+    task.Title = title;
+    // Completion and position are optional on update; leave them untouched when
+    // the client omits them (e.g. a rename doesn't clear the checkbox).
+    if (request.IsCompleted is bool completed)
+        task.IsCompleted = completed;
+    if (request.Position is int position)
+        task.Position = position;
+
+    await db.SaveChangesAsync();
+
+    return Results.Ok(TaskResponse.From(task));
+});
+
+tasks.MapDelete("/{id:int}", async (int id, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var userId = user.GetUserId();
+    var task = await db.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+    if (task is null)
+        return Results.NotFound();
+
+    db.Tasks.Remove(task);
+    await db.SaveChangesAsync();
+
+    return Results.NoContent();
+});
+
 app.MapFallbackToFile("index.html");
 
 app.Run();
 
+// Same RFC 7807 `errors` body shape the auth endpoints and React client use.
+static IResult TitleRequired() => Results.ValidationProblem(new Dictionary<string, string[]>
+{
+    ["Title"] = new[] { "Title is required." },
+});
+
 record AuthRequest(string Email, string Password);
+
+// Nullable so an omitted field means "leave unchanged" on update, rather than
+// resetting to false/0.
+record TaskRequest(string? Title, bool? IsCompleted, int? Position);
+
+record TaskResponse(int Id, string Title, bool IsCompleted, int Position, DateTimeOffset CreatedAt)
+{
+    public static TaskResponse From(TaskItem t) =>
+        new(t.Id, t.Title, t.IsCompleted, t.Position, t.CreatedAt);
+}
+
+static class ClaimsPrincipalExtensions
+{
+    // The Identity cookie carries the user id as the NameIdentifier claim.
+    public static string? GetUserId(this ClaimsPrincipal user) =>
+        user.FindFirstValue(ClaimTypes.NameIdentifier);
+}
 
 // Exposes the implicit Program class so the test project can bootstrap the app
 // with WebApplicationFactory<Program>.
