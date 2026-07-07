@@ -50,6 +50,11 @@ using (var scope = app.Services.CreateScope())
     scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
 }
 
+// Serve the built React app (Vite outputs into wwwroot) and fall back to
+// index.html for client-side routing.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -94,6 +99,8 @@ app.MapGet("/account/me", (ClaimsPrincipal user) => Results.Ok(new
 {
     email = user.FindFirstValue(ClaimTypes.Email) ?? user.Identity?.Name,
 })).RequireAuthorization();
+
+app.MapFallbackToFile("index.html");
 
 app.Run();
 

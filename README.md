@@ -3,11 +3,32 @@
 This is a basic MVP Task Management app built with .NET and React.
 
 ## Local setup
-Requires the [.NET SDK](https://dotnet.microsoft.com/download). On a mac, install via homebrew with `brew install --cask dotnet-sdk`
 
-To run the app: run `dotnet run --project src/TaskManager.Web` and then open the printed `http://localhost:<port>` URL.
+### Prerequisites
+- The [.NET SDK](https://dotnet.microsoft.com/download) (10.0+). On a mac: `brew install --cask dotnet-sdk`
+- [Node.js](https://nodejs.org) (18+), which provides `npm`, to build the React frontend. On a mac: `brew install node`
 
-To run the tests: `dotnet test`
+### Run the app
+The React frontend (in `ClientApp/`) builds into the backend's `wwwroot/`, which the .NET app then serves. So build the frontend once, then run the backend:
+
+```bash
+# 1. Build the React frontend
+cd ClientApp
+npm install
+npm run build
+cd ..
+
+# 2. Run the backend (creates the local SQLite database on first launch)
+dotnet run --project TaskManager
+```
+
+Then open the printed `http://localhost:<port>` URL. You can register a new account and sign in.
+
+### Frontend dev mode (optional)
+For iterating on the React code with hot reload, run the backend (`dotnet run --project TaskManager`) and the Vite dev server (`cd ClientApp && npm run dev`) side by side, then open the Vite URL (`http://localhost:5173`). Vite proxies the auth API to the backend so the session cookie works across both dev servers.
+
+### Run the tests
+`dotnet test`
 
 ## The feature set
 A logged-in user can:
@@ -46,3 +67,10 @@ Tasks are soft-deleted (`deleted_at` is set instead of removing the row); users 
 
 - **Tasks:** deletion is a frequent, unceremonious action and "delete all completed" removes many at once, so accidental loss is easy. Keeping the rows gives a safety net and an easy path to undo / "trash" later.
 - **Users:** soft delete adds friction with no upside here. Identity enforces a unique email, so a soft-deleted user would block that address from ever being reused, and there's no requirement to restore accounts. Hard-deleting also lets the task foreign key's cascade cleanly remove their tasks, instead of leaving orphaned rows behind a dead cascade.
+
+### Auth
+Registration and login are built on [ASP.NET Core Identity](https://learn.microsoft.com/aspnet/core/security/authentication/identity) via `AddIdentityCore` — so password hashing, the user store, and lockout are Identity's, not hand-rolled. The four HTTP endpoints under `/account` (`register`, `login`, `logout`, `me`) are written explicitly rather than mounted with `MapIdentityApi`, so the app exposes only what it uses: `MapIdentityApi` would also add a bearer-token scheme and endpoints for email confirmation, password reset, and 2FA, none of which are wired up here.
+
+The session is held in a single `HttpOnly` cookie — never exposed to JavaScript, which avoids the token-in-`localStorage` XSS risk. The cookie is `SameSite=Lax`, which blocks standard cross-site request forgery; a production build with state-changing flows would additionally add anti-forgery tokens.
+
+Identity's schema is used as-is minus roles: `AppDbContext` derives from `IdentityUserContext` (not `IdentityDbContext`), which omits the role tables this app has no use for.
