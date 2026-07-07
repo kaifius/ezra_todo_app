@@ -58,6 +58,13 @@ In my mind, the bare minimum feature set needed to make a to-do app usable is
 
 I chose to additionally include the ability to edit and reorder items, because they are low-cost features to add and they give the user the ability to keep their list clean and at least somewhat tailored to their preferences. This would possibly avoid some user frustration that could prevent early adoption.
 
+## Auth
+Registration and login are built on [ASP.NET Core Identity](https://learn.microsoft.com/aspnet/core/security/authentication/identity) via `AddIdentityCore` — so password hashing, the user store, and lockout are Identity's, not hand-rolled. The four HTTP endpoints under `/account` (`register`, `login`, `logout`, `me`) are written explicitly rather than mounted with `MapIdentityApi`, so the app exposes only what it uses: `MapIdentityApi` would also add a bearer-token scheme and endpoints for email confirmation, password reset, and 2FA, none of which are wired up here for the sake of simplicity.
+
+The session is held in a single `HttpOnly` cookie — never exposed to JavaScript, which avoids the token-in-`localStorage` XSS risk. The cookie is `SameSite=Lax`, which blocks standard cross-site request forgery; a production build with state-changing flows would additionally add anti-forgery tokens.
+
+Identity's schema is used as-is minus roles: `AppDbContext` derives from `IdentityUserContext` (not `IdentityDbContext`), which omits the role tables this app has no use for.
+
 ## Deliberately left out
 ### I18n
 For simplicity, I chose not to handle any internationalization and instead use static strings for user-facing content, but in a production app all of the strings would be internationalized.
@@ -83,10 +90,4 @@ Another feature that I cut to uncreep the scope was allowing each user to have m
 - Once backfill is complete, make the `list_id` column in the `tasks` table non-nullable
 - This could be done cleanly before the UX is built by explicitly making a has-one relationship between `users` and `lists` (which would later be changed to a has-many), and then associating all new tasks on creation to the user's one list
 
-## Auth
-Registration and login are built on [ASP.NET Core Identity](https://learn.microsoft.com/aspnet/core/security/authentication/identity) via `AddIdentityCore` — so password hashing, the user store, and lockout are Identity's, not hand-rolled. The four HTTP endpoints under `/account` (`register`, `login`, `logout`, `me`) are written explicitly rather than mounted with `MapIdentityApi`, so the app exposes only what it uses: `MapIdentityApi` would also add a bearer-token scheme and endpoints for email confirmation, password reset, and 2FA, none of which are wired up here for the sake of simplicity.
-
-The session is held in a single `HttpOnly` cookie — never exposed to JavaScript, which avoids the token-in-`localStorage` XSS risk. The cookie is `SameSite=Lax`, which blocks standard cross-site request forgery; a production build with state-changing flows would additionally add anti-forgery tokens.
-
-Identity's schema is used as-is minus roles: `AppDbContext` derives from `IdentityUserContext` (not `IdentityDbContext`), which omits the role tables this app has no use for.
 
