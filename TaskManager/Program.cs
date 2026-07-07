@@ -105,3 +105,7 @@ app.MapFallbackToFile("index.html");
 app.Run();
 
 record AuthRequest(string Email, string Password);
+
+// Exposes the implicit Program class so the test project can bootstrap the app
+// with WebApplicationFactory<Program>.
+public partial class Program { }
