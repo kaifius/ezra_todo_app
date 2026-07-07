@@ -1,8 +1,15 @@
 import { useEffect, useState } from 'react';
-import { getTasks, createTask, setTaskCompleted, renameTask, deleteTask } from '../api.js';
+import {
+  getTasks,
+  createTask,
+  setTaskCompleted,
+  renameTask,
+  reorderTasks,
+  deleteTask,
+} from '../api.js';
 
-// The signed-in user's todo list: create, view, toggle completion, rename, and
-// delete. (Reordering isn't implemented yet.)
+// The signed-in user's todo list: create, view, toggle completion, rename,
+// reorder, and delete.
 export default function TaskList() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,6 +21,8 @@ export default function TaskList() {
   const [editingId, setEditingId] = useState(null);
   const [draftTitle, setDraftTitle] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  // Disables the move buttons while a reorder request is in flight, avoiding races.
+  const [reordering, setReordering] = useState(false);
 
   // Load the list once on mount.
   useEffect(() => {
@@ -57,6 +66,29 @@ export default function TaskList() {
       setTasks((prev) => prev.filter((t) => t.id !== id));
     } catch (err) {
       setError(err.message);
+    }
+  }
+
+  // Moves the task at `index` one slot up (direction -1) or down (direction +1).
+  // Updates the list optimistically, then persists; reverts if the server rejects.
+  async function handleMove(index, direction) {
+    const target = index + direction;
+    if (target < 0 || target >= tasks.length) return;
+
+    const previous = tasks;
+    const next = [...tasks];
+    [next[index], next[target]] = [next[target], next[index]];
+
+    setError('');
+    setTasks(next);
+    setReordering(true);
+    try {
+      await reorderTasks(next.map((t) => t.id));
+    } catch (err) {
+      setTasks(previous); // roll back to the order the server still has
+      setError(err.message);
+    } finally {
+      setReordering(false);
     }
   }
 
@@ -114,7 +146,7 @@ export default function TaskList() {
         <p className="muted">No tasks yet. Add your first one above.</p>
       ) : (
         <ul className="tasks">
-          {tasks.map((task) => (
+          {tasks.map((task, index) => (
             <li key={task.id} className="task">
               <input
                 type="checkbox"
@@ -153,6 +185,26 @@ export default function TaskList() {
                   <span className={`task-title${task.isCompleted ? ' completed' : ''}`}>
                     {task.title}
                   </span>
+                  <div className="task-move">
+                    <button
+                      type="button"
+                      className="task-secondary"
+                      onClick={() => handleMove(index, -1)}
+                      disabled={index === 0 || reordering}
+                      aria-label={`Move "${task.title}" up`}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="task-secondary"
+                      onClick={() => handleMove(index, 1)}
+                      disabled={index === tasks.length - 1 || reordering}
+                      aria-label={`Move "${task.title}" down`}
+                    >
+                      ↓
+                    </button>
+                  </div>
                   <button
                     type="button"
                     className="task-secondary"

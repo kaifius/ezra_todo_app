@@ -86,6 +86,12 @@ export async function renameTask(id, title) {
   return res.json();
 }
 
+// Persists a new ordering. `ids` is the user's full task-id list in display order.
+export async function reorderTasks(ids) {
+  const res = await request('PUT', '/api/tasks/order', { ids });
+  if (!res.ok) throw new Error(await readError(res, 'Could not reorder tasks.'));
+}
+
 export async function deleteTask(id) {
   const res = await request('DELETE', `/api/tasks/${id}`);
   if (!res.ok) throw new Error(await readError(res, 'Could not delete task.'));

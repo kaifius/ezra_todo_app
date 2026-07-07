@@ -78,7 +78,10 @@ One feature that I considered including, but felt like it was a bit beyond what'
 - This could be done cleanly before the UX is built by explicitly making a has-one relationship between `users` and `lists` (which would later be changed to a has-many), and then associating all new tasks on creation to the user's one list.
 
 ### One-click rename
-Often in to do apps, you can click into a task and it immediately becomes editable. In my experience, however, this UI makes the edit feature less likely to be picked up by accessibility tools, so I chose to go with an explicit `edit` button that both screen readers and voice control can easily find and parse.
+Often in to do apps, you can click into a task and it immediately becomes editable. In my experience, however, this UI makes the edit feature less likely to be picked up by accessibility tools, so I chose to go with an explicit `edit` button that both screen readers and voice control can easily find and parse. An alternate option would be to implement both, but for simplicity I chose to only implement the edit button here.
+
+### Drag-and-drop reorder
+The arrow button UX is kind of clunky, but it's simple, accessible, and it gets the job done. Adding a drag and drop library that's clean and accessible would be a nice-to-have follow-on feature.
 
 ## Misc architectural notes
 ### Soft deletion for tasks, but not for users
