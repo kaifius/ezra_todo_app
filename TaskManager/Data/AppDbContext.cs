@@ -11,4 +11,23 @@ public class AppDbContext : IdentityUserContext<ApplicationUser>
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
+
+    public DbSet<TaskItem> Tasks => Set<TaskItem>();
+
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        base.OnModelCreating(builder);
+
+        builder.Entity<TaskItem>(task =>
+        {
+            task.ToTable("tasks");
+            task.Property(t => t.Title).IsRequired().HasMaxLength(500);
+            // Delete a user's tasks with the user. Also indexes the FK, which is
+            // the column every task query filters on.
+            task.HasOne(t => t.User)
+                .WithMany()
+                .HasForeignKey(t => t.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
 }
