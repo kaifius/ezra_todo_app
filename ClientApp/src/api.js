@@ -79,6 +79,13 @@ export async function setTaskCompleted(task, isCompleted) {
   return res.json();
 }
 
+// Renames a task. Omitting isCompleted leaves it unchanged server-side.
+export async function renameTask(id, title) {
+  const res = await request('PUT', `/api/tasks/${id}`, { title });
+  if (!res.ok) throw new Error(await readError(res, 'Could not rename task.'));
+  return res.json();
+}
+
 export async function deleteTask(id) {
   const res = await request('DELETE', `/api/tasks/${id}`);
   if (!res.ok) throw new Error(await readError(res, 'Could not delete task.'));

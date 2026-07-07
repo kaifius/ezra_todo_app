@@ -183,7 +183,8 @@ button:disabled {
   color: var(--muted);
 }
 
-.task-delete {
+/* Small, quiet text buttons for the per-row actions (Rename / Cancel / Delete). */
+.task-secondary {
   flex-shrink: 0;
   background: none;
   color: var(--muted);
@@ -193,7 +194,31 @@ button:disabled {
   width: auto;
 }
 
-.task-delete:hover:not(:disabled) {
+.task-secondary:hover:not(:disabled) {
   background: none;
+  color: var(--accent);
+}
+
+.task-delete:hover:not(:disabled) {
   color: var(--error);
+}
+
+/* Inline rename: input + Save/Cancel fill the row in place of the title. */
+.task-edit {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.task-edit input {
+  flex: 1;
+  margin-bottom: 0;
+  padding: 0.35rem 0.5rem;
+}
+
+.task-edit button {
+  flex-shrink: 0;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
 }

@@ -1,14 +1,19 @@
 import { useEffect, useState } from 'react';
-import { getTasks, createTask, setTaskCompleted, deleteTask } from '../api.js';
+import { getTasks, createTask, setTaskCompleted, renameTask, deleteTask } from '../api.js';
 
-// The signed-in user's todo list: create, view, toggle completion, and delete.
-// (Renaming and reordering aren't implemented yet.)
+// The signed-in user's todo list: create, view, toggle completion, rename, and
+// delete. (Reordering isn't implemented yet.)
 export default function TaskList() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [title, setTitle] = useState('');
   const [adding, setAdding] = useState(false);
+  // Which task is being renamed, plus the in-progress draft text. Only one row is
+  // editable at a time.
+  const [editingId, setEditingId] = useState(null);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   // Load the list once on mount.
   useEffect(() => {
@@ -55,6 +60,37 @@ export default function TaskList() {
     }
   }
 
+  function startEdit(task) {
+    setError('');
+    setEditingId(task.id);
+    setDraftTitle(task.title);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setDraftTitle('');
+  }
+
+  async function saveEdit(task) {
+    const trimmed = draftTitle.trim();
+    if (!trimmed) return; // the server also rejects blank titles; skip the round trip
+    if (trimmed === task.title) {
+      cancelEdit(); // nothing changed
+      return;
+    }
+    setError('');
+    setSavingEdit(true);
+    try {
+      const updated = await renameTask(task.id, trimmed);
+      setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      cancelEdit();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
   return (
     <section className="tasks-section">
       <form className="add-task" onSubmit={handleAdd}>
@@ -84,19 +120,57 @@ export default function TaskList() {
                 type="checkbox"
                 checked={task.isCompleted}
                 onChange={() => handleToggle(task)}
+                disabled={editingId === task.id}
                 aria-label={`Mark "${task.title}" ${task.isCompleted ? 'incomplete' : 'complete'}`}
               />
-              <span className={`task-title${task.isCompleted ? ' completed' : ''}`}>
-                {task.title}
-              </span>
-              <button
-                type="button"
-                className="task-delete"
-                onClick={() => handleDelete(task.id)}
-                aria-label={`Delete "${task.title}"`}
-              >
-                Delete
-              </button>
+              {editingId === task.id ? (
+                <form
+                  className="task-edit"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    saveEdit(task);
+                  }}
+                >
+                  <input
+                    type="text"
+                    aria-label="Edit task title"
+                    value={draftTitle}
+                    onChange={(e) => setDraftTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') cancelEdit();
+                    }}
+                    autoFocus
+                  />
+                  <button type="submit" disabled={savingEdit || !draftTitle.trim()}>
+                    Save
+                  </button>
+                  <button type="button" className="task-secondary" onClick={cancelEdit}>
+                    Cancel
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <span className={`task-title${task.isCompleted ? ' completed' : ''}`}>
+                    {task.title}
+                  </span>
+                  <button
+                    type="button"
+                    className="task-secondary"
+                    onClick={() => startEdit(task)}
+                    aria-label={`Rename "${task.title}"`}
+                  >
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    className="task-secondary task-delete"
+                    onClick={() => handleDelete(task.id)}
+                    aria-label={`Delete "${task.title}"`}
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
             </li>
           ))}
         </ul>
